@@ -1,7 +1,7 @@
 name: hpcc_connect
 description: Cross-platform SSH client for HPCC with file browser and terminal
 publish_to: 'none'
-version: 1.2.0+3
+version: 1.0.0
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
