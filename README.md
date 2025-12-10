@@ -26,13 +26,13 @@
 
 | Platform | Download | Notes |
 |----------|----------|-------|
-| **Windows** | [Installer (.exe)](https://github.com/Aadhityan-A/hpcc-connect/releases/latest) | Recommended |
-| **Linux** | [AppImage](https://github.com/Aadhityan-A/hpcc-connect/releases/latest) | Works on any distro |
-| **Linux** | [.deb package](https://github.com/Aadhityan-A/hpcc-connect/releases/latest) | Ubuntu/Debian |
-| **macOS** | [DMG](https://github.com/Aadhityan-A/hpcc-connect/releases/latest) | macOS 10.14+ |
-| **Android** | [APK](https://github.com/Aadhityan-A/hpcc-connect/releases/latest) | Android 5.0+ |
+| **Windows** | [Installer (.exe)](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.0.0/hpcc-connect-windows-x64-setup.exe) | Recommended |
+| **Linux** | [AppImage](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.0.0/hpcc-connect-1.0.0-x86_64.AppImage) | Works on any distro |
+| **Linux** | [.deb package](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.0.0/hpcc-connect_1.0.0_amd64.deb) | Ubuntu/Debian |
+| **macOS** | [DMG](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.0.0/hpcc-connect-macos.dmg) | macOS 10.14+ |
+| **Android** | [APK (arm64-v8a)](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.0.0/hpcc-connect-app-arm64-v8a-release.apk) | Android 5.0+ |
 
-➡️ **[View All Downloads](https://github.com/Aadhityan-A/hpcc-connect/releases)**
+➡️ **[View All v1.0.0 Assets](https://github.com/Aadhityan-A/hpcc-connect/releases/tag/v1.0.0)**
 
 ---
 
