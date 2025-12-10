@@ -1,0 +1,55 @@
+name: hpcc_connect
+description: Cross-platform SSH client for HPCC with file browser and terminal
+publish_to: 'none'
+version: 1.2.0+3
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # SSH and SFTP
+  dartssh2: ^2.8.2
+  
+  # Terminal emulation
+  xterm: ^4.0.0
+  flutter_pty: ^0.4.1
+  
+  # State management
+  provider: ^6.1.1
+  
+  # Local storage for connections
+  shared_preferences: ^2.2.2
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  
+  # File operations
+  path_provider: ^2.1.2
+  path: ^1.8.3
+  file_picker: ^8.1.6
+  
+  # UI components
+  cupertino_icons: ^1.0.6
+  flutter_slidable: ^3.0.1
+  split_view: ^3.2.1
+  
+  # Utilities
+  uuid: ^4.2.2
+  intl: ^0.18.1
+  permission_handler: ^11.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.8
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/icons/
+    - assets/fonts/

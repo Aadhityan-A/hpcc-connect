@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=HPCC Connect
+Comment=SSH Terminal Client with File Browser
+Exec=/opt/hpcc-connect/hpcc_connect
+Icon=hpcc-connect
+Type=Application
+Categories=Network;RemoteAccess;
+Terminal=false
+StartupNotify=true
+Keywords=ssh;terminal;sftp;hpcc;remote;

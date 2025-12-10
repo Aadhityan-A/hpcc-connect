@@ -1,0 +1,547 @@
+name: Build and Release
+
+on:
+  push:
+    # Run CI/CD only when a build tag is pushed (e.g., v1.2.3 or build-2025-01-01)
+    tags:
+      - 'v*'
+      - 'build-*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: '3.32.0'
+
+jobs:
+  # Analyze and Test
+  analyze:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze code
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run tests
+        run: flutter test
+
+  # Build for Android
+  build-android:
+    name: Build Android
+    needs: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          echo "y" | sdkmanager --install "ndk;27.0.12077973"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: Build App Bundle
+        run: flutter build appbundle --release
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 30
+
+      - name: Upload App Bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/*.aab
+          retention-days: 30
+
+  # Build for Linux
+  build-linux:
+    name: Build Linux
+    needs: analyze
+    runs-on: ubuntu-22.04  # Use 22.04 for wider compatibility
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libfuse2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Linux
+        run: flutter build linux --release
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1 | tr -d ' ')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create .deb package
+        run: |
+          # Create deb package structure
+          mkdir -p deb-package/DEBIAN
+          mkdir -p deb-package/opt/hpcc-connect
+          mkdir -p deb-package/usr/share/applications
+          mkdir -p deb-package/usr/share/icons/hicolor/256x256/apps
+          
+          # Copy application files
+          cp -r build/linux/x64/release/bundle/* deb-package/opt/hpcc-connect/
+          
+          # Create control file
+          cat > deb-package/DEBIAN/control << EOF
+          Package: hpcc-connect
+          Version: ${{ steps.version.outputs.version }}
+          Section: net
+          Priority: optional
+          Architecture: amd64
+          Depends: libgtk-3-0, libblkid1, liblzma5
+          Maintainer: Aadhityan A <aadhityan@example.com>
+          Description: HPCC Connect - Cross-platform SSH Terminal Client
+           A modern SSH terminal client with built-in file browser and
+           drag-and-drop file transfer capabilities.
+          Homepage: https://github.com/Aadhityan-A/hpcc-connect
+          EOF
+          
+          # Create desktop entry
+          cat > deb-package/usr/share/applications/hpcc-connect.desktop << EOF
+          [Desktop Entry]
+          Name=HPCC Connect
+          Comment=SSH Terminal Client with File Browser
+          Exec=/opt/hpcc-connect/hpcc_connect
+          Icon=hpcc-connect
+          Type=Application
+          Categories=Network;RemoteAccess;
+          Terminal=false
+          StartupNotify=true
+          EOF
+          
+          # Create postinst script
+          cat > deb-package/DEBIAN/postinst << 'EOF'
+          #!/bin/bash
+          update-desktop-database /usr/share/applications 2>/dev/null || true
+          EOF
+          chmod 755 deb-package/DEBIAN/postinst
+          
+          # Build deb package
+          dpkg-deb --build deb-package hpcc-connect_${{ steps.version.outputs.version }}_amd64.deb
+
+      - name: Create AppImage
+        run: |
+          # Download appimagetool
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          
+          # Create AppDir structure
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/lib
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          
+          # Copy application
+          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+          
+          # Create desktop file
+          cat > AppDir/hpcc-connect.desktop << EOF
+          [Desktop Entry]
+          Name=HPCC Connect
+          Comment=SSH Terminal Client with File Browser
+          Exec=hpcc_connect
+          Icon=hpcc-connect
+          Type=Application
+          Categories=Network;RemoteAccess;
+          Terminal=false
+          EOF
+          cp AppDir/hpcc-connect.desktop AppDir/usr/share/applications/
+          
+          # Create simple icon (PNG from SVG or placeholder)
+          cat > AppDir/hpcc-connect.svg << 'SVGEOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="128" cy="128" r="120" fill="#2196F3"/>
+            <rect x="48" y="64" width="160" height="128" rx="8" fill="#1E1E1E"/>
+            <rect x="48" y="64" width="160" height="24" rx="8" fill="#333"/>
+            <circle cx="64" cy="76" r="5" fill="#FF5F56"/>
+            <circle cx="80" cy="76" r="5" fill="#FFBD2E"/>
+            <circle cx="96" cy="76" r="5" fill="#27CA40"/>
+            <rect x="60" y="100" width="60" height="8" rx="2" fill="#27CA40"/>
+            <rect x="60" y="116" width="100" height="8" rx="2" fill="#FFF" opacity="0.8"/>
+            <rect x="60" y="132" width="80" height="8" rx="2" fill="#FFF" opacity="0.6"/>
+          </svg>
+          SVGEOF
+          cp AppDir/hpcc-connect.svg AppDir/usr/share/icons/hicolor/256x256/apps/
+          
+          # Create AppRun script
+          cat > AppDir/AppRun << 'APPRUNEOF'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/bin/lib:${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          exec "${HERE}/usr/bin/hpcc_connect" "$@"
+          APPRUNEOF
+          chmod +x AppDir/AppRun
+          
+          # Build AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir hpcc-connect-${{ steps.version.outputs.version }}-x86_64.AppImage || true
+
+      - name: Create tar.gz archive
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czvf ../../../../../hpcc-connect-linux-x64.tar.gz *
+
+      - name: Upload Linux .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: hpcc-connect_*.deb
+          retention-days: 30
+
+      - name: Upload Linux AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: hpcc-connect-*.AppImage
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload Linux tar.gz artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-tarball
+          path: hpcc-connect-linux-x64.tar.gz
+          retention-days: 30
+
+  # Build for Windows
+  build-windows:
+    name: Build Windows
+    needs: analyze
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Windows
+        run: flutter build windows --release
+
+      - name: Create portable zip
+        run: |
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath hpcc-connect-windows-x64-portable.zip
+
+      - name: Create installer with Inno Setup
+        run: |
+          # Download Inno Setup
+          choco install innosetup -y
+          
+          # Create Inno Setup script
+          @"
+          [Setup]
+          AppName=HPCC Connect
+          AppVersion=1.0.0
+          AppPublisher=Aadhityan A
+          AppPublisherURL=https://github.com/Aadhityan-A/hpcc-connect
+          DefaultDirName={autopf}\HPCC Connect
+          DefaultGroupName=HPCC Connect
+          OutputDir=.
+          OutputBaseFilename=hpcc-connect-windows-x64-setup
+          Compression=lzma
+          SolidCompression=yes
+          ArchitecturesAllowed=x64compatible
+          ArchitecturesInstallIn64BitMode=x64compatible
+          
+          [Files]
+          Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+          
+          [Icons]
+          Name: "{group}\HPCC Connect"; Filename: "{app}\hpcc_connect.exe"
+          Name: "{group}\Uninstall HPCC Connect"; Filename: "{uninstallexe}"
+          Name: "{autodesktop}\HPCC Connect"; Filename: "{app}\hpcc_connect.exe"; Tasks: desktopicon
+          
+          [Tasks]
+          Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
+          
+          [Run]
+          Filename: "{app}\hpcc_connect.exe"; Description: "Launch HPCC Connect"; Flags: nowait postinstall skipifsilent
+          "@ | Out-File -FilePath installer.iss -Encoding ASCII
+          
+          # Build installer
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+      - name: Upload Windows portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable
+          path: hpcc-connect-windows-x64-portable.zip
+          retention-days: 30
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: hpcc-connect-windows-x64-setup.exe
+          retention-days: 30
+
+  # Build for macOS
+  build-macos:
+    name: Build macOS
+    needs: analyze
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Enable macOS desktop
+        run: flutter config --enable-macos-desktop
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build macOS
+        run: flutter build macos --release
+
+      - name: Create DMG installer
+        run: |
+          # Install create-dmg
+          brew install create-dmg
+          
+          # Create DMG
+          create-dmg \
+            --volname "HPCC Connect" \
+            --volicon "build/macos/Build/Products/Release/HPCC Connect.app/Contents/Resources/AppIcon.icns" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "HPCC Connect.app" 150 185 \
+            --hide-extension "HPCC Connect.app" \
+            --app-drop-link 450 185 \
+            "hpcc-connect-macos.dmg" \
+            "build/macos/Build/Products/Release/HPCC Connect.app" || true
+          
+          # Fallback to simple DMG if create-dmg fails
+          if [ ! -f "hpcc-connect-macos.dmg" ]; then
+            hdiutil create -volname "HPCC Connect" -srcfolder "build/macos/Build/Products/Release/HPCC Connect.app" -ov -format UDZO "hpcc-connect-macos.dmg"
+          fi
+
+      - name: Create zip archive (backup)
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -r ../../../../../hpcc-connect-macos.zip "HPCC Connect.app"
+
+      - name: Upload macOS DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: hpcc-connect-macos.dmg
+          retention-days: 30
+
+      - name: Upload macOS zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-zip
+          path: hpcc-connect-macos.zip
+          retention-days: 30
+
+  # Build for iOS (requires Apple Developer account for signing)
+  build-ios:
+    name: Build iOS
+    needs: analyze
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Create IPA directory
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r hpcc-connect-ios.ipa Payload
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: hpcc-connect-ios.ipa
+          retention-days: 30
+
+  # Create Release (only on tag pushes)
+  release:
+    name: Create Release
+    needs: [build-android, build-linux, build-windows, build-macos, build-ios]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Get version from pubspec
+        id: version
+        run: |
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d ' ')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Rename artifacts for release
+        run: |
+          # Rename Android APKs
+          cd artifacts/android-apk
+          for f in *.apk; do
+            mv "$f" "hpcc-connect-${f}"
+          done
+          cd ../..
+          
+          # Rename Android AAB
+          cd artifacts/android-aab
+          mv *.aab hpcc-connect-release.aab
+          cd ../..
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: HPCC Connect v${{ steps.version.outputs.version }}
+          draft: true
+          body: |
+            ## HPCC Connect v${{ steps.version.outputs.version }}
+            
+            Cross-platform SSH Terminal Client with File Browser
+            
+            ### Downloads
+            
+            | Platform | File | Description |
+            |----------|------|-------------|
+            | **Android** | `hpcc-connect-app-arm64-v8a-release.apk` | For modern Android phones (ARM64) |
+            | **Android** | `hpcc-connect-app-armeabi-v7a-release.apk` | For older Android phones (ARM32) |
+            | **Android** | `hpcc-connect-app-x86_64-release.apk` | For Android emulators (x86_64) |
+            | **Windows** | `hpcc-connect-windows-x64-setup.exe` | Windows installer (recommended) |
+            | **Windows** | `hpcc-connect-windows-x64-portable.zip` | Portable version (no install) |
+            | **Linux** | `hpcc-connect-*-x86_64.AppImage` | Universal Linux (recommended) |
+            | **Linux** | `hpcc-connect_*_amd64.deb` | Debian/Ubuntu package |
+            | **Linux** | `hpcc-connect-linux-x64.tar.gz` | Portable tarball |
+            | **macOS** | `hpcc-connect-macos.dmg` | macOS disk image (recommended) |
+            | **macOS** | `hpcc-connect-macos.zip` | macOS app bundle |
+            | **iOS** | `hpcc-connect-ios.ipa` | iOS app (requires signing) |
+            
+            ### Installation Instructions
+            
+            **Android**: Download the APK and install (enable "Unknown sources" in settings)
+            
+            **Windows**: Run the `.exe` installer or extract the portable zip
+            
+            **Linux (AppImage - Recommended)**:
+            ```bash
+            chmod +x hpcc-connect-*-x86_64.AppImage
+            ./hpcc-connect-*-x86_64.AppImage
+            ```
+            
+            **Linux (Debian/Ubuntu)**:
+            ```bash
+            sudo dpkg -i hpcc-connect_*_amd64.deb
+            ```
+            
+            **macOS**: Open the `.dmg` and drag app to Applications
+            
+            **iOS**: Requires TestFlight or manual signing
+            
+          files: |
+            artifacts/android-apk/*.apk
+            artifacts/android-aab/*.aab
+            artifacts/linux-deb/*.deb
+            artifacts/linux-appimage/*.AppImage
+            artifacts/linux-tarball/*.tar.gz
+            artifacts/windows-installer/*.exe
+            artifacts/windows-portable/*.zip
+            artifacts/macos-dmg/*.dmg
+            artifacts/macos-zip/*.zip
+            artifacts/ios-build/*.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

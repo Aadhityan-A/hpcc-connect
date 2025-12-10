@@ -1,0 +1,19 @@
+Package: hpcc-connect
+Version: 1.0.0
+Section: net
+Priority: optional
+Architecture: amd64
+Depends: libgtk-3-0, libblkid1, liblzma5
+Maintainer: Aadhityan A <aadhityan@example.com>
+Description: HPCC Connect - Cross-platform SSH Terminal Client
+ A modern SSH terminal client with built-in file browser and
+ drag-and-drop file transfer capabilities. Connect to HPCC
+ clusters and remote servers with ease.
+ .
+ Features:
+  - SSH terminal with full PTY support
+  - Dual-pane file browser (local and remote)
+  - Drag-and-drop file transfers
+  - Connection management with saved credentials
+  - Support for password and key-based authentication
+Homepage: https://github.com/Aadhityan-A/hpcc-connect
