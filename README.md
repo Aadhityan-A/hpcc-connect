@@ -290,16 +290,6 @@ create-dmg \
   "build/macos/Build/Products/Release/HPCC Connect.app"
 ```
 
-#### Code Signing (for distribution)
-```bash
-# Sign the app
-codesign --deep --force --verify --verbose --sign "Developer ID Application: YOUR NAME" "build/macos/Build/Products/Release/HPCC Connect.app"
-
-# Notarize for distribution outside App Store
-xcrun notarytool submit "HPCC-Connect-Installer.dmg" --apple-id YOUR_APPLE_ID --password APP_SPECIFIC_PASSWORD --team-id YOUR_TEAM_ID
-```
-
----
 
 ## Configuration
 
