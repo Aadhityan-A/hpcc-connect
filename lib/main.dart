@@ -9,6 +9,7 @@ import 'providers/connection_provider.dart';
 import 'providers/file_browser_provider.dart';
 import 'providers/terminal_provider.dart';
 import 'providers/local_terminal_provider.dart';
+import 'providers/editor_provider.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -133,6 +134,7 @@ class HPCCConnectApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => FileBrowserProvider()),
         ChangeNotifierProvider(create: (_) => TerminalProvider()),
         ChangeNotifierProvider(create: (_) => LocalTerminalProvider()),
+        ChangeNotifierProvider(create: (_) => EditorProvider()),
       ],
       child: MaterialApp(
         title: 'HPCC Connect',

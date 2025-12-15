@@ -253,6 +253,183 @@ class SSHService {
     await sftp.rename(oldPath, newPath);
   }
 
+  /// Download directory recursively from remote to local
+  /// Returns the total number of files downloaded and callbacks for progress
+  Future<void> downloadDirectoryRecursive(
+    String remotePath,
+    String localPath, {
+    void Function(String currentFile, int fileIndex, int totalFiles)? onFileStart,
+    void Function(int transferred, int total)? onFileProgress,
+    void Function(String filePath)? onFileComplete,
+    void Function(int totalFiles)? onCountingComplete,
+  }) async {
+    final sftp = await _getSftpClient();
+    
+    // First, count all files recursively
+    final allFiles = <_RemoteFileInfo>[];
+    await _collectRemoteFiles(sftp, remotePath, localPath, allFiles);
+    
+    onCountingComplete?.call(allFiles.length);
+    
+    // Download each file
+    for (int i = 0; i < allFiles.length; i++) {
+      final fileInfo = allFiles[i];
+      onFileStart?.call(fileInfo.remotePath, i + 1, allFiles.length);
+      
+      // Ensure parent directory exists
+      final localDir = Directory(p.dirname(fileInfo.localPath));
+      if (!await localDir.exists()) {
+        await localDir.create(recursive: true);
+      }
+      
+      // Download the file
+      await downloadFile(
+        fileInfo.remotePath,
+        fileInfo.localPath,
+        onProgress: onFileProgress,
+      );
+      
+      onFileComplete?.call(fileInfo.localPath);
+    }
+  }
+
+  /// Helper to collect all files in a remote directory recursively
+  Future<void> _collectRemoteFiles(
+    SftpClient sftp,
+    String remotePath,
+    String localPath,
+    List<_RemoteFileInfo> files,
+  ) async {
+    final items = await sftp.listdir(remotePath);
+    
+    for (final item in items) {
+      if (item.filename == '.' || item.filename == '..') continue;
+      
+      final itemRemotePath = p.posix.join(remotePath, item.filename);
+      final itemLocalPath = p.join(localPath, item.filename);
+      
+      if (item.attr.isDirectory) {
+        // Recursively collect files from subdirectory
+        await _collectRemoteFiles(sftp, itemRemotePath, itemLocalPath, files);
+      } else {
+        files.add(_RemoteFileInfo(
+          remotePath: itemRemotePath,
+          localPath: itemLocalPath,
+          size: item.attr.size ?? 0,
+        ));
+      }
+    }
+  }
+
+  /// Upload directory recursively from local to remote
+  Future<void> uploadDirectoryRecursive(
+    String localPath,
+    String remotePath, {
+    void Function(String currentFile, int fileIndex, int totalFiles)? onFileStart,
+    void Function(int transferred, int total)? onFileProgress,
+    void Function(String filePath)? onFileComplete,
+    void Function(int totalFiles)? onCountingComplete,
+  }) async {
+    final sftp = await _getSftpClient();
+    
+    // First, count all files recursively
+    final allFiles = <_LocalFileInfo>[];
+    await _collectLocalFiles(localPath, remotePath, allFiles);
+    
+    onCountingComplete?.call(allFiles.length);
+    
+    // Create all necessary remote directories first
+    final dirsToCreate = <String>{};
+    for (final fileInfo in allFiles) {
+      final dir = p.posix.dirname(fileInfo.remotePath);
+      dirsToCreate.add(dir);
+    }
+    
+    // Sort directories by depth to create parents first
+    final sortedDirs = dirsToCreate.toList()
+      ..sort((a, b) => a.split('/').length.compareTo(b.split('/').length));
+    
+    for (final dir in sortedDirs) {
+      try {
+        await sftp.mkdir(dir);
+      } catch (_) {
+        // Directory may already exist, ignore error
+      }
+    }
+    
+    // Upload each file
+    for (int i = 0; i < allFiles.length; i++) {
+      final fileInfo = allFiles[i];
+      onFileStart?.call(fileInfo.localPath, i + 1, allFiles.length);
+      
+      await uploadFile(
+        fileInfo.localPath,
+        fileInfo.remotePath,
+        onProgress: onFileProgress,
+      );
+      
+      onFileComplete?.call(fileInfo.remotePath);
+    }
+  }
+
+  /// Helper to collect all files in a local directory recursively
+  Future<void> _collectLocalFiles(
+    String localPath,
+    String remotePath,
+    List<_LocalFileInfo> files,
+  ) async {
+    final dir = Directory(localPath);
+    
+    await for (final entity in dir.list(followLinks: false)) {
+      final name = p.basename(entity.path);
+      final itemRemotePath = p.posix.join(remotePath, name);
+      
+      if (entity is Directory) {
+        // Recursively collect files from subdirectory
+        await _collectLocalFiles(entity.path, itemRemotePath, files);
+      } else if (entity is File) {
+        final stat = await entity.stat();
+        files.add(_LocalFileInfo(
+          localPath: entity.path,
+          remotePath: itemRemotePath,
+          size: stat.size,
+        ));
+      }
+    }
+  }
+
+  /// Read remote file content as string
+  Future<String> readRemoteFileContent(String remotePath) async {
+    final sftp = await _getSftpClient();
+    final remoteFile = await sftp.open(remotePath, mode: SftpFileOpenMode.read);
+    
+    try {
+      final chunks = <int>[];
+      await for (final chunk in remoteFile.read()) {
+        chunks.addAll(chunk);
+      }
+      return utf8.decode(chunks);
+    } finally {
+      await remoteFile.close();
+    }
+  }
+
+  /// Write content to remote file
+  Future<void> writeRemoteFileContent(String remotePath, String content) async {
+    final sftp = await _getSftpClient();
+    final remoteFile = await sftp.open(
+      remotePath,
+      mode: SftpFileOpenMode.create | SftpFileOpenMode.write | SftpFileOpenMode.truncate,
+    );
+    
+    try {
+      final bytes = utf8.encode(content);
+      await remoteFile.write(Stream.value(Uint8List.fromList(bytes)));
+    } finally {
+      await remoteFile.close();
+    }
+  }
+
   /// Execute command on remote
   Future<String> executeCommand(String command) async {
     if (_client == null) throw StateError('Not connected');
@@ -270,4 +447,30 @@ class SSHService {
     _terminalOutputController.close();
     _connectionStateController.close();
   }
+}
+
+/// Helper class to store remote file info during recursive download
+class _RemoteFileInfo {
+  final String remotePath;
+  final String localPath;
+  final int size;
+
+  _RemoteFileInfo({
+    required this.remotePath,
+    required this.localPath,
+    required this.size,
+  });
+}
+
+/// Helper class to store local file info during recursive upload
+class _LocalFileInfo {
+  final String localPath;
+  final String remotePath;
+  final int size;
+
+  _LocalFileInfo({
+    required this.localPath,
+    required this.remotePath,
+    required this.size,
+  });
 }

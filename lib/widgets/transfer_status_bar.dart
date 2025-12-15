@@ -88,7 +88,9 @@ class TransferStatusBar extends StatelessWidget {
     return Row(
       children: [
         Icon(
-          isUpload ? Icons.upload : Icons.download,
+          transfer.isDirectory 
+              ? (isUpload ? Icons.drive_folder_upload : Icons.folder)
+              : (isUpload ? Icons.upload : Icons.download),
           size: 16,
           color: isUpload ? Colors.green : Colors.blue,
         ),
@@ -98,10 +100,29 @@ class TransferStatusBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                fileName,
-                style: const TextStyle(fontSize: 12),
-                overflow: TextOverflow.ellipsis,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      transfer.isDirectory 
+                          ? '$fileName${transfer.statusMessage != null ? ' - ${transfer.statusMessage}' : ''}'
+                          : fileName,
+                      style: const TextStyle(fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (transfer.isDirectory && transfer.currentFileName != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      transfer.currentFileName!,
+                      style: TextStyle(
+                        fontSize: 10, 
+                        color: Colors.grey.shade600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 2),
               LinearProgressIndicator(
@@ -187,12 +208,32 @@ class _TransferListItem extends StatelessWidget {
     
     return ListTile(
       leading: Icon(
-        isUpload ? Icons.upload : Icons.download,
+        transfer.isDirectory 
+            ? Icons.folder
+            : (isUpload ? Icons.upload : Icons.download),
         color: _getStatusColor(),
       ),
-      title: Text(
-        transfer.sourcePath.split('/').last,
-        overflow: TextOverflow.ellipsis,
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              transfer.sourcePath.split('/').last,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (transfer.isDirectory)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.blue.withAlpha(51),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'Folder',
+                style: TextStyle(fontSize: 10, color: Colors.blue),
+              ),
+            ),
+        ],
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,8 +243,30 @@ class _TransferListItem extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
             overflow: TextOverflow.ellipsis,
           ),
-          if (transfer.status == TransferStatus.inProgress)
+          if (transfer.isDirectory && transfer.currentFileName != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Current: ${transfer.currentFileName}',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          if (transfer.status == TransferStatus.inProgress) ...[
+            const SizedBox(height: 4),
             LinearProgressIndicator(value: transfer.progress),
+            if (transfer.isDirectory) ...[
+              const SizedBox(height: 2),
+              LinearProgressIndicator(
+                value: transfer.currentFileProgress,
+                minHeight: 2,
+                color: Colors.grey,
+                backgroundColor: Colors.grey.shade300,
+              ),
+            ],
+          ],
           if (transfer.error != null)
             Text(
               transfer.error!,
@@ -214,7 +277,7 @@ class _TransferListItem extends StatelessWidget {
             ),
         ],
       ),
-      trailing: _buildStatusIcon(),
+      trailing: _buildStatusWidget(),
     );
   }
 
@@ -233,18 +296,30 @@ class _TransferListItem extends StatelessWidget {
     }
   }
 
-  Widget _buildStatusIcon() {
+  Widget _buildStatusWidget() {
     switch (transfer.status) {
       case TransferStatus.pending:
         return const Icon(Icons.hourglass_empty, color: Colors.grey);
       case TransferStatus.inProgress:
-        return SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            value: transfer.progress,
-            strokeWidth: 2,
-          ),
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                value: transfer.progress,
+                strokeWidth: 2,
+              ),
+            ),
+            if (transfer.isDirectory) ...[
+              const SizedBox(height: 2),
+              Text(
+                transfer.progressText,
+                style: const TextStyle(fontSize: 10),
+              ),
+            ],
+          ],
         );
       case TransferStatus.completed:
         return const Icon(Icons.check_circle, color: Colors.green);

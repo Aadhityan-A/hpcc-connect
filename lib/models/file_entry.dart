@@ -75,6 +75,16 @@ class FileTransfer {
   int transferredBytes;
   TransferStatus status;
   String? error;
+  
+  // For directory transfers
+  final bool isDirectory;
+  int totalFiles;
+  int completedFiles;
+  int currentFileIndex;
+  String? currentFileName;
+  int currentFileTransferred;
+  int currentFileTotal;
+  String? statusMessage;
 
   FileTransfer({
     required this.id,
@@ -85,15 +95,36 @@ class FileTransfer {
     this.transferredBytes = 0,
     this.status = TransferStatus.pending,
     this.error,
+    this.isDirectory = false,
+    this.totalFiles = 0,
+    this.completedFiles = 0,
+    this.currentFileIndex = 0,
+    this.currentFileName,
+    this.currentFileTransferred = 0,
+    this.currentFileTotal = 0,
+    this.statusMessage,
   });
 
   double get progress {
+    if (isDirectory) {
+      if (totalFiles == 0) return 0;
+      return completedFiles / totalFiles;
+    }
     if (totalBytes == 0) return 0;
     return transferredBytes / totalBytes;
   }
 
   String get progressText {
+    if (isDirectory) {
+      if (totalFiles == 0) return 'Counting...';
+      return '$completedFiles / $totalFiles files';
+    }
     return '${(progress * 100).toStringAsFixed(1)}%';
+  }
+  
+  double get currentFileProgress {
+    if (currentFileTotal == 0) return 0;
+    return currentFileTransferred / currentFileTotal;
   }
 }
 

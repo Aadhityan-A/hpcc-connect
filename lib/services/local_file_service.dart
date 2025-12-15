@@ -159,6 +159,30 @@ class LocalFileService {
     return p.posix.join(base, child);
   }
 
+  /// Read file content as string
+  Future<String> readFileContent(String path) async {
+    final file = File(path);
+    return await file.readAsString();
+  }
+
+  /// Write content to file
+  Future<void> writeFileContent(String path, String content) async {
+    final file = File(path);
+    await file.writeAsString(content);
+  }
+
+  /// Get temp directory path
+  Future<String> getTempDirectory() async {
+    return Directory.systemTemp.path;
+  }
+
+  /// Create a unique temp file path for a given filename
+  Future<String> createTempFilePath(String fileName) async {
+    final tempDir = await getTempDirectory();
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    return joinPaths(tempDir, 'hpcc_connect_${timestamp}_$fileName');
+  }
+
   String _formatPermissions(int mode) {
     if (Platform.isWindows) {
       return '----------';

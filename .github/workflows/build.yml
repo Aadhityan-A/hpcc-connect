@@ -2,10 +2,13 @@ name: Build and Release
 
 on:
   push:
-    # Run CI/CD only when a build tag is pushed (e.g., v1.2.3 or build-2025-01-01)
+    # Run CI/CD on tag pushes (e.g., v1.2.3 or build-2025-01-01)
     tags:
       - 'v*'
       - 'build-*'
+    # Run CI/CD on develop branch pushes
+    branches:
+      - develop
   workflow_dispatch:
 
 permissions:
@@ -134,9 +137,16 @@ jobs:
           mkdir -p deb-package/opt/hpcc-connect
           mkdir -p deb-package/usr/share/applications
           mkdir -p deb-package/usr/share/icons/hicolor/256x256/apps
+          mkdir -p deb-package/usr/share/icons/hicolor/scalable/apps
           
           # Copy application files
           cp -r build/linux/x64/release/bundle/* deb-package/opt/hpcc-connect/
+
+          # Install app icon (SVG + PNG fallback)
+          cp assets/icons/hpcc-connect.svg deb-package/usr/share/icons/hicolor/scalable/apps/hpcc-connect.svg
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+          rsvg-convert -w 256 -h 256 assets/icons/hpcc-connect.svg -o deb-package/usr/share/icons/hicolor/256x256/apps/hpcc-connect.png
           
           # Create control file
           cat > deb-package/DEBIAN/control << EOF
@@ -154,7 +164,8 @@ jobs:
           EOF
           
           # Create desktop entry
-          cat > deb-package/usr/share/applications/hpcc-connect.desktop << EOF
+          # Match the Linux GTK application id (APPLICATION_ID in linux/CMakeLists.txt)
+          cat > deb-package/usr/share/applications/com.example.hpcc_connect.desktop << EOF
           [Desktop Entry]
           Name=HPCC Connect
           Comment=SSH Terminal Client with File Browser
@@ -169,7 +180,13 @@ jobs:
           # Create postinst script
           cat > deb-package/DEBIAN/postinst << 'EOF'
           #!/bin/bash
-          update-desktop-database /usr/share/applications 2>/dev/null || true
+            if command -v gtk-update-icon-cache &> /dev/null; then
+              gtk-update-icon-cache -f /usr/share/icons/hicolor/ 2>/dev/null || true
+            fi
+
+            if command -v update-desktop-database &> /dev/null; then
+              update-desktop-database /usr/share/applications 2>/dev/null || true
+            fi
           EOF
           chmod 755 deb-package/DEBIAN/postinst
           
@@ -187,12 +204,13 @@ jobs:
           mkdir -p AppDir/usr/lib
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
           
           # Copy application
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
           
-          # Create desktop file
-          cat > AppDir/hpcc-connect.desktop << EOF
+          # Create desktop file (match GTK application id)
+          cat > AppDir/com.example.hpcc_connect.desktop << EOF
           [Desktop Entry]
           Name=HPCC Connect
           Comment=SSH Terminal Client with File Browser
@@ -202,24 +220,14 @@ jobs:
           Categories=Network;RemoteAccess;
           Terminal=false
           EOF
-          cp AppDir/hpcc-connect.desktop AppDir/usr/share/applications/
-          
-          # Create simple icon (PNG from SVG or placeholder)
-          cat > AppDir/hpcc-connect.svg << 'SVGEOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="128" cy="128" r="120" fill="#2196F3"/>
-            <rect x="48" y="64" width="160" height="128" rx="8" fill="#1E1E1E"/>
-            <rect x="48" y="64" width="160" height="24" rx="8" fill="#333"/>
-            <circle cx="64" cy="76" r="5" fill="#FF5F56"/>
-            <circle cx="80" cy="76" r="5" fill="#FFBD2E"/>
-            <circle cx="96" cy="76" r="5" fill="#27CA40"/>
-            <rect x="60" y="100" width="60" height="8" rx="2" fill="#27CA40"/>
-            <rect x="60" y="116" width="100" height="8" rx="2" fill="#FFF" opacity="0.8"/>
-            <rect x="60" y="132" width="80" height="8" rx="2" fill="#FFF" opacity="0.6"/>
-          </svg>
-          SVGEOF
-          cp AppDir/hpcc-connect.svg AppDir/usr/share/icons/hicolor/256x256/apps/
+          cp AppDir/com.example.hpcc_connect.desktop AppDir/usr/share/applications/
+
+          # Use the real project icon (SVG + PNG fallback)
+          cp assets/icons/hpcc-connect.svg AppDir/hpcc-connect.svg
+          cp assets/icons/hpcc-connect.svg AppDir/usr/share/icons/hicolor/scalable/apps/hpcc-connect.svg
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+          rsvg-convert -w 256 -h 256 assets/icons/hpcc-connect.svg -o AppDir/usr/share/icons/hicolor/256x256/apps/hpcc-connect.png
           
           # Create AppRun script
           cat > AppDir/AppRun << 'APPRUNEOF'

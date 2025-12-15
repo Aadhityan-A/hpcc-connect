@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/connection_provider.dart';
 import '../providers/file_browser_provider.dart';
 import '../providers/terminal_provider.dart';
+import '../providers/editor_provider.dart';
 import '../widgets/connection_sidebar.dart';
 import '../widgets/file_browser_panel.dart';
 import '../widgets/terminal_panel.dart';
@@ -30,10 +31,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final connectionProvider = context.read<ConnectionProvider>();
     final fileBrowserProvider = context.read<FileBrowserProvider>();
     final terminalProvider = context.read<TerminalProvider>();
+    final editorProvider = context.read<EditorProvider>();
 
     // Link SSH service to other providers
     fileBrowserProvider.setSshService(connectionProvider.sshService);
     terminalProvider.setSshService(connectionProvider.sshService);
+    editorProvider.setSshService(connectionProvider.sshService);
   }
 
   @override

@@ -3,6 +3,36 @@ import 'package:intl/intl.dart';
 
 import '../models/file_entry.dart';
 
+/// Set of text file extensions that can be opened in the editor
+const Set<String> textFileExtensions = {
+  'txt', 'md', 'log', 'in', 'out', 'csv', 'tsv',
+  'py', 'pyw', 'pyi',
+  'js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs',
+  'html', 'htm', 'xhtml',
+  'css', 'scss', 'sass', 'less',
+  'json', 'xml', 'yaml', 'yml', 'toml',
+  'sh', 'bash', 'zsh', 'fish', 'bat', 'cmd', 'ps1',
+  'c', 'cpp', 'cc', 'cxx', 'h', 'hpp', 'hxx',
+  'java', 'kt', 'kts', 'scala', 'groovy',
+  'rs', 'go', 'swift', 'dart',
+  'rb', 'rake', 'gemspec',
+  'php', 'phtml',
+  'sql', 'sqlite',
+  'r', 'R', 'rmd',
+  'lua', 'vim', 'el', 'lisp', 'clj', 'cljs',
+  'asm', 's', 'S',
+  'tex', 'bib', 'cls', 'sty',
+  'ini', 'cfg', 'conf', 'config', 'properties',
+  'env', 'gitignore', 'dockerignore', 'editorconfig',
+  'makefile', 'cmake', 'gradle',
+  'dockerfile',
+};
+
+/// Check if a file extension is a text file that can be opened in editor
+bool isTextFile(String extension) {
+  return textFileExtensions.contains(extension.toLowerCase());
+}
+
 class FileListView extends StatelessWidget {
   final List<FileEntry> files;
   final Set<String> selectedFiles;
@@ -10,6 +40,8 @@ class FileListView extends StatelessWidget {
   final void Function(FileEntry) onDoubleTap;
   final void Function(String) onToggleSelection;
   final Future<void> Function(String, String) onRename;
+  final void Function(FileEntry)? onOpenFile;
+  final void Function(List<String>)? onDelete;
 
   const FileListView({
     super.key,
@@ -19,6 +51,8 @@ class FileListView extends StatelessWidget {
     required this.onDoubleTap,
     required this.onToggleSelection,
     required this.onRename,
+    this.onOpenFile,
+    this.onDelete,
   });
 
   @override
@@ -38,8 +72,20 @@ class FileListView extends StatelessWidget {
                 entry: file,
                 isSelected: isSelected,
                 onTap: () => onToggleSelection(file.path),
-                onDoubleTap: () => onDoubleTap(file),
+                onDoubleTap: () {
+                  if (file.isDirectory) {
+                    onDoubleTap(file);
+                  } else if (isTextFile(file.extension)) {
+                    onOpenFile?.call(file);
+                  }
+                },
                 onRename: (newName) => onRename(file.path, newName),
+                onOpenFile: onOpenFile != null && !file.isDirectory && isTextFile(file.extension)
+                    ? () => onOpenFile!(file)
+                    : null,
+                onDelete: onDelete != null
+                    ? () => onDelete!([file.path])
+                    : null,
               );
             },
           ),
@@ -81,6 +127,8 @@ class _FileListItem extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onDoubleTap;
   final Future<void> Function(String) onRename;
+  final VoidCallback? onOpenFile;
+  final VoidCallback? onDelete;
 
   const _FileListItem({
     required this.entry,
@@ -88,6 +136,8 @@ class _FileListItem extends StatefulWidget {
     required this.onTap,
     required this.onDoubleTap,
     required this.onRename,
+    this.onOpenFile,
+    this.onDelete,
   });
 
   @override
@@ -332,6 +382,41 @@ class _FileListItemState extends State<_FileListItem> {
     final RenderBox itemBox = context.findRenderObject() as RenderBox;
     final Offset position = itemBox.localToGlobal(Offset.zero, ancestor: overlay);
 
+    final items = <PopupMenuEntry<String>>[
+      // Show "Open" option for text files
+      if (widget.onOpenFile != null)
+        const PopupMenuItem(
+          value: 'open',
+          child: Row(
+            children: [
+              Icon(Icons.edit_document, size: 18),
+              SizedBox(width: 8),
+              Text('Open in Editor'),
+            ],
+          ),
+        ),
+      const PopupMenuItem(
+        value: 'rename',
+        child: Row(
+          children: [
+            Icon(Icons.edit, size: 18),
+            SizedBox(width: 8),
+            Text('Rename'),
+          ],
+        ),
+      ),
+      const PopupMenuItem(
+        value: 'delete',
+        child: Row(
+          children: [
+            Icon(Icons.delete, size: 18, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Delete', style: TextStyle(color: Colors.red)),
+          ],
+        ),
+      ),
+    ];
+
     showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -340,31 +425,18 @@ class _FileListItemState extends State<_FileListItem> {
         position.dx + 200,
         position.dy + 50,
       ),
-      items: [
-        const PopupMenuItem(
-          value: 'rename',
-          child: Row(
-            children: [
-              Icon(Icons.edit, size: 18),
-              SizedBox(width: 8),
-              Text('Rename'),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete, size: 18, color: Colors.red),
-              SizedBox(width: 8),
-              Text('Delete', style: TextStyle(color: Colors.red)),
-            ],
-          ),
-        ),
-      ],
+      items: items,
     ).then((value) {
-      if (value == 'rename') {
-        setState(() => _isRenaming = true);
+      switch (value) {
+        case 'open':
+          widget.onOpenFile?.call();
+          break;
+        case 'rename':
+          setState(() => _isRenaming = true);
+          break;
+        case 'delete':
+          widget.onDelete?.call();
+          break;
       }
     });
   }

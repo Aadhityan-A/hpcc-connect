@@ -202,36 +202,92 @@ class FileBrowserProvider extends ChangeNotifier {
       final fileName = p.basename(localPath);
       final remoteDest = p.posix.join(_remotePath, fileName);
 
-      final transfer = FileTransfer(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        sourcePath: localPath,
-        destinationPath: remoteDest,
-        operation: TransferOperation.upload,
-        totalBytes: await File(localPath).length(),
-      );
+      // Check if it's a directory
+      final isDirectory = await Directory(localPath).exists();
 
-      _transfers.add(transfer);
-      notifyListeners();
-
-      try {
-        transfer.status = TransferStatus.inProgress;
-        notifyListeners();
-
-        await _sshService!.uploadFile(
-          localPath,
-          remoteDest,
-          onProgress: (transferred, total) {
-            transfer.transferredBytes = transferred;
-            notifyListeners();
-          },
+      if (isDirectory) {
+        // Handle directory upload recursively
+        final transfer = FileTransfer(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          sourcePath: localPath,
+          destinationPath: remoteDest,
+          operation: TransferOperation.upload,
+          totalBytes: 0, // Will be updated when counting starts
+          isDirectory: true,
         );
 
-        transfer.status = TransferStatus.completed;
-      } catch (e) {
-        transfer.status = TransferStatus.failed;
-        transfer.error = e.toString();
+        _transfers.add(transfer);
+        notifyListeners();
+
+        try {
+          transfer.status = TransferStatus.inProgress;
+          transfer.statusMessage = 'Counting files...';
+          notifyListeners();
+
+          await _sshService!.uploadDirectoryRecursive(
+            localPath,
+            remoteDest,
+            onCountingComplete: (totalFiles) {
+              transfer.totalFiles = totalFiles;
+              transfer.statusMessage = 'Uploading...';
+              notifyListeners();
+            },
+            onFileStart: (currentFile, fileIndex, totalFiles) {
+              transfer.currentFileIndex = fileIndex;
+              transfer.currentFileName = p.basename(currentFile);
+              notifyListeners();
+            },
+            onFileProgress: (transferred, total) {
+              transfer.currentFileTransferred = transferred;
+              transfer.currentFileTotal = total;
+              notifyListeners();
+            },
+            onFileComplete: (filePath) {
+              transfer.completedFiles++;
+              notifyListeners();
+            },
+          );
+
+          transfer.status = TransferStatus.completed;
+          transfer.statusMessage = 'Completed';
+        } catch (e) {
+          transfer.status = TransferStatus.failed;
+          transfer.error = e.toString();
+        }
+        notifyListeners();
+      } else {
+        // Handle single file upload
+        final transfer = FileTransfer(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          sourcePath: localPath,
+          destinationPath: remoteDest,
+          operation: TransferOperation.upload,
+          totalBytes: await File(localPath).length(),
+        );
+
+        _transfers.add(transfer);
+        notifyListeners();
+
+        try {
+          transfer.status = TransferStatus.inProgress;
+          notifyListeners();
+
+          await _sshService!.uploadFile(
+            localPath,
+            remoteDest,
+            onProgress: (transferred, total) {
+              transfer.transferredBytes = transferred;
+              notifyListeners();
+            },
+          );
+
+          transfer.status = TransferStatus.completed;
+        } catch (e) {
+          transfer.status = TransferStatus.failed;
+          transfer.error = e.toString();
+        }
+        notifyListeners();
       }
-      notifyListeners();
     }
 
     // Refresh remote directory
@@ -259,7 +315,55 @@ class FileBrowserProvider extends ChangeNotifier {
       );
 
       if (fileEntry.isDirectory) {
-        // TODO: Handle directory download recursively
+        // Handle directory download recursively
+        final transfer = FileTransfer(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          sourcePath: remotePath,
+          destinationPath: localDest,
+          operation: TransferOperation.download,
+          totalBytes: 0, // Will be updated when counting starts
+          isDirectory: true,
+        );
+
+        _transfers.add(transfer);
+        notifyListeners();
+
+        try {
+          transfer.status = TransferStatus.inProgress;
+          transfer.statusMessage = 'Counting files...';
+          notifyListeners();
+
+          await _sshService!.downloadDirectoryRecursive(
+            remotePath,
+            localDest,
+            onCountingComplete: (totalFiles) {
+              transfer.totalFiles = totalFiles;
+              transfer.statusMessage = 'Downloading...';
+              notifyListeners();
+            },
+            onFileStart: (currentFile, fileIndex, totalFiles) {
+              transfer.currentFileIndex = fileIndex;
+              transfer.currentFileName = p.basename(currentFile);
+              notifyListeners();
+            },
+            onFileProgress: (transferred, total) {
+              transfer.currentFileTransferred = transferred;
+              transfer.currentFileTotal = total;
+              notifyListeners();
+            },
+            onFileComplete: (filePath) {
+              transfer.completedFiles++;
+              notifyListeners();
+            },
+          );
+
+          transfer.status = TransferStatus.completed;
+          transfer.statusMessage = 'Completed';
+        } catch (e) {
+          transfer.status = TransferStatus.failed;
+          transfer.error = e.toString();
+        }
+        notifyListeners();
         continue;
       }
 

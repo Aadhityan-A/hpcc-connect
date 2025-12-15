@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../models/file_entry.dart';
 import '../providers/connection_provider.dart';
 import '../providers/file_browser_provider.dart';
+import '../providers/editor_provider.dart';
+import '../screens/text_editor_screen.dart';
 import 'file_list_view.dart';
 
 class FileBrowserPanel extends StatefulWidget {
@@ -15,6 +17,24 @@ class FileBrowserPanel extends StatefulWidget {
 
 class _FileBrowserPanelState extends State<FileBrowserPanel> {
   double _localPanelWidth = 0.5; // Percentage
+
+  void _openFileInEditor(BuildContext context, FileEntry file) async {
+    final editorProvider = context.read<EditorProvider>();
+    
+    if (file.isLocal) {
+      await editorProvider.openLocalFile(file.path);
+    } else {
+      await editorProvider.openRemoteFile(file.path);
+    }
+    
+    if (context.mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const TextEditorScreen(),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +58,7 @@ class _FileBrowserPanelState extends State<FileBrowserPanel> {
                         onFileDrop: (entries) {
                           _handleDropToRemote(entries, fileBrowserProvider);
                         },
+                        onOpenFile: (file) => _openFileInEditor(context, file),
                       ),
                     ),
                     // Resizable divider
@@ -63,6 +84,7 @@ class _FileBrowserPanelState extends State<FileBrowserPanel> {
                         onFileDrop: (entries) {
                           _handleDropToLocal(entries, fileBrowserProvider);
                         },
+                        onOpenFile: (file) => _openFileInEditor(context, file),
                       ),
                     ),
                   ],
@@ -72,6 +94,7 @@ class _FileBrowserPanelState extends State<FileBrowserPanel> {
                 return _LocalFileBrowser(
                   provider: fileBrowserProvider,
                   onFileDrop: null,
+                  onOpenFile: (file) => _openFileInEditor(context, file),
                 );
               }
             },
@@ -82,14 +105,14 @@ class _FileBrowserPanelState extends State<FileBrowserPanel> {
   }
 
   void _handleDropToRemote(List<FileEntry> entries, FileBrowserProvider provider) {
-    final paths = entries.where((e) => e.isLocal && !e.isDirectory).map((e) => e.path).toList();
+    final paths = entries.where((e) => e.isLocal).map((e) => e.path).toList();
     if (paths.isNotEmpty) {
       provider.uploadFiles(paths);
     }
   }
 
   void _handleDropToLocal(List<FileEntry> entries, FileBrowserProvider provider) {
-    final paths = entries.where((e) => !e.isLocal && !e.isDirectory).map((e) => e.path).toList();
+    final paths = entries.where((e) => !e.isLocal).map((e) => e.path).toList();
     if (paths.isNotEmpty) {
       provider.downloadFiles(paths);
     }
@@ -99,10 +122,12 @@ class _FileBrowserPanelState extends State<FileBrowserPanel> {
 class _LocalFileBrowser extends StatelessWidget {
   final FileBrowserProvider provider;
   final void Function(List<FileEntry>)? onFileDrop;
+  final void Function(FileEntry)? onOpenFile;
 
   const _LocalFileBrowser({
     required this.provider,
     this.onFileDrop,
+    this.onOpenFile,
   });
 
   @override
@@ -128,6 +153,7 @@ class _LocalFileBrowser extends StatelessWidget {
       onRename: (path, name) => provider.renameLocal(path, name),
       onFileDrop: onFileDrop,
       onUpload: (paths) => provider.uploadFiles(paths),
+      onOpenFile: onOpenFile,
     );
   }
 }
@@ -135,10 +161,12 @@ class _LocalFileBrowser extends StatelessWidget {
 class _RemoteFileBrowser extends StatelessWidget {
   final FileBrowserProvider provider;
   final void Function(List<FileEntry>)? onFileDrop;
+  final void Function(FileEntry)? onOpenFile;
 
   const _RemoteFileBrowser({
     required this.provider,
     this.onFileDrop,
+    this.onOpenFile,
   });
 
   @override
@@ -164,6 +192,7 @@ class _RemoteFileBrowser extends StatelessWidget {
       onRename: (path, name) => provider.renameRemote(path, name),
       onFileDrop: onFileDrop,
       onDownload: (paths) => provider.downloadFiles(paths),
+      onOpenFile: onOpenFile,
     );
   }
 }
@@ -190,6 +219,7 @@ class _FileBrowserPane extends StatefulWidget {
   final void Function(List<FileEntry>)? onFileDrop;
   final void Function(List<String>)? onUpload;
   final void Function(List<String>)? onDownload;
+  final void Function(FileEntry)? onOpenFile;
 
   const _FileBrowserPane({
     required this.title,
@@ -213,6 +243,7 @@ class _FileBrowserPane extends StatefulWidget {
     this.onFileDrop,
     this.onUpload,
     this.onDownload,
+    this.onOpenFile,
   });
 
   @override
@@ -455,6 +486,8 @@ class _FileBrowserPaneState extends State<_FileBrowserPane> {
       },
       onToggleSelection: widget.onToggleSelection,
       onRename: widget.onRename,
+      onOpenFile: widget.onOpenFile,
+      onDelete: (paths) => widget.onDelete(paths),
     );
   }
 
