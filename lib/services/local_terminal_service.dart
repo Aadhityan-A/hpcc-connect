@@ -31,8 +31,8 @@ class LocalTerminalService {
     if (Platform.isWindows) {
       // Use PowerShell for better PTY support on Windows
       // Try PowerShell Core (pwsh) first, then Windows PowerShell, fallback to cmd
-      final pwshCore = 'C:\\Program Files\\PowerShell\\7\\pwsh.exe';
-      final pwshWindows = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+      const pwshCore = 'C:\\Program Files\\PowerShell\\7\\pwsh.exe';
+      const pwshWindows = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
       
       if (File(pwshCore).existsSync()) {
         return pwshCore;
