@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 env:
-  FLUTTER_VERSION: '3.32.0'
+  FLUTTER_VERSION: '3.24.0'
 
 jobs:
   # Analyze and Test
