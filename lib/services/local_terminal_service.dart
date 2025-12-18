@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -28,7 +29,17 @@ class LocalTerminalService {
   /// Get the default shell for the current platform
   String _getDefaultShell() {
     if (Platform.isWindows) {
-      // Prefer PowerShell if available, fallback to cmd
+      // Use PowerShell for better PTY support on Windows
+      // Try PowerShell Core (pwsh) first, then Windows PowerShell, fallback to cmd
+      final pwshCore = 'C:\\Program Files\\PowerShell\\7\\pwsh.exe';
+      final pwshWindows = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+      
+      if (File(pwshCore).existsSync()) {
+        return pwshCore;
+      } else if (File(pwshWindows).existsSync()) {
+        return pwshWindows;
+      }
+      // Fallback to cmd if PowerShell not found
       return Platform.environment['COMSPEC'] ?? 'cmd.exe';
     } else {
       // Unix-like systems
@@ -42,6 +53,23 @@ class LocalTerminalService {
     env['TERM'] = 'xterm-256color';
     env['COLORTERM'] = 'truecolor';
     return env;
+  }
+
+  /// Get shell arguments for the current platform
+  List<String> _getShellArguments(String shell) {
+    if (Platform.isWindows) {
+      // Check if using PowerShell
+      if (shell.toLowerCase().contains('powershell') || shell.toLowerCase().contains('pwsh')) {
+        // -NoLogo: Hides banner
+        // -NoExit: Keeps shell running
+        // -Command -: Makes it interactive
+        return ['-NoLogo', '-NoExit'];
+      }
+      // cmd.exe doesn't need special args
+      return [];
+    }
+    // Unix shells - use interactive login mode
+    return ['-l'];
   }
 
   /// Start a local terminal session
@@ -58,6 +86,7 @@ class LocalTerminalService {
     }
 
     final shell = _getDefaultShell();
+    final shellArgs = _getShellArguments(shell);
     _currentDirectory = Platform.environment['HOME'] ?? 
                         Platform.environment['USERPROFILE'] ?? 
                         Directory.current.path;
@@ -65,6 +94,7 @@ class LocalTerminalService {
     try {
       _pty = Pty.start(
         shell,
+        arguments: shellArgs,
         columns: columns,
         rows: rows,
         environment: _getEnvironment(),
@@ -115,7 +145,8 @@ class LocalTerminalService {
   /// Write input to the terminal
   void write(String data) {
     if (_pty == null || !_isRunning) return;
-    _pty!.write(Uint8List.fromList(data.codeUnits));
+    // Use UTF-8 encoding for proper character handling
+    _pty!.write(Uint8List.fromList(utf8.encode(data)));
   }
 
   /// Resize the terminal

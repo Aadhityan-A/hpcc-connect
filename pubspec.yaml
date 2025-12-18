@@ -1,7 +1,7 @@
 name: hpcc_connect
 description: Cross-platform SSH client for HPCC with file browser and terminal
 publish_to: 'none'
-version: 1.0.0
+version: 1.3.0
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -46,6 +46,23 @@ dev_dependencies:
   flutter_lints: ^3.0.1
   hive_generator: ^2.0.1
   build_runner: ^2.4.8
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  windows:
+    generate: true
+    icon_size: 48
+    image_path: "assets/icons/app_icon_1024.png"
+  macos:
+    generate: true
+    image_path: "assets/icons/app_icon_1024.png"
+  linux: true
+  image_path: "assets/icons/app_icon_1024.png"
+  adaptive_icon_background: "#2196F3"
+  adaptive_icon_foreground: "assets/icons/app_icon_1024.png"
 
 flutter:
   uses-material-design: true

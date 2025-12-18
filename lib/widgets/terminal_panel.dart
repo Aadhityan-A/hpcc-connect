@@ -445,7 +445,7 @@ class _TerminalPanelState extends State<TerminalPanel> with SingleTickerProvider
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
+        color: color.withOpacity(0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -1045,7 +1045,7 @@ class _TerminalPanelState extends State<TerminalPanel> with SingleTickerProvider
       // Local terminal
       final localProvider = context.read<LocalTerminalProvider>();
       if (localProvider.isInitialized) {
-        localProvider.writeToTerminal('$command\n');
+        localProvider.writeToTerminal('$command\r');
         
         // Track directory changes
         if (command.startsWith('cd ')) {
@@ -1056,11 +1056,11 @@ class _TerminalPanelState extends State<TerminalPanel> with SingleTickerProvider
         }
       }
     } else {
-      // SSH terminal
+      // SSH terminal - send to the actual SSH shell, not just display
       final terminalProvider = context.read<TerminalProvider>();
-      if (terminalProvider.isInitialized && terminalProvider.terminal != null) {
-        // Write directly to terminal
-        terminalProvider.terminal!.write('$command\r');
+      if (terminalProvider.isInitialized) {
+        // Write to SSH shell which will echo back through terminal output
+        terminalProvider.writeToShell('$command\r');
       }
     }
 
@@ -1415,7 +1415,7 @@ class _TerminalPanelState extends State<TerminalPanel> with SingleTickerProvider
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   margin: const EdgeInsets.only(right: 8),
                   decoration: BoxDecoration(
-                    color: Colors.purple.withValues(alpha: 0.2),
+                    color: Colors.purple.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Row(
@@ -1435,7 +1435,7 @@ class _TerminalPanelState extends State<TerminalPanel> with SingleTickerProvider
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   margin: const EdgeInsets.only(right: 8),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.2),
+                    color: Colors.amber.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Row(
