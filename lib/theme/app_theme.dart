@@ -29,7 +29,7 @@ class AppTheme {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: const CardTheme(
         elevation: 2,
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -73,7 +73,7 @@ class AppTheme {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: const CardTheme(
         color: darkCard,
         elevation: 2,
       ),
