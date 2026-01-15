@@ -5,11 +5,14 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'models/ssh_connection.dart';
+import 'models/command_snippet.dart';
 import 'providers/connection_provider.dart';
 import 'providers/file_browser_provider.dart';
 import 'providers/terminal_provider.dart';
 import 'providers/local_terminal_provider.dart';
 import 'providers/editor_provider.dart';
+import 'providers/snippet_provider.dart';
+import 'providers/terminal_mode_provider.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -37,9 +40,15 @@ Future<void> _initializeHive() async {
     if (!Hive.isAdapterRegistered(1)) {
       Hive.registerAdapter(AuthTypeAdapter());
     }
+    if (!Hive.isAdapterRegistered(2)) {
+      Hive.registerAdapter(CommandSnippetAdapter());
+    }
     
     // Try to open the connections box
     await _openConnectionsBox();
+    
+    // Try to open the snippets box
+    await _openSnippetsBox();
     
   } catch (e) {
     debugPrint('Hive initialization error: $e');
@@ -55,7 +64,18 @@ Future<void> _openConnectionsBox() async {
   } catch (e) {
     debugPrint('Error opening connections box: $e');
     // Delete corrupted box and create fresh one
-    await _deleteAndRecreateBox('connections');
+    await _deleteAndRecreateBox<SSHConnection>('connections');
+  }
+}
+
+/// Open the snippets box with error recovery
+Future<void> _openSnippetsBox() async {
+  try {
+    await Hive.openBox<CommandSnippet>('snippets');
+  } catch (e) {
+    debugPrint('Error opening snippets box: $e');
+    // Delete corrupted box and create fresh one
+    await _deleteAndRecreateBox<CommandSnippet>('snippets');
   }
 }
 
@@ -94,7 +114,11 @@ Future<void> _recoverFromCorruptedData() async {
     if (!Hive.isAdapterRegistered(1)) {
       Hive.registerAdapter(AuthTypeAdapter());
     }
+    if (!Hive.isAdapterRegistered(2)) {
+      Hive.registerAdapter(CommandSnippetAdapter());
+    }
     await Hive.openBox<SSHConnection>('connections');
+    await Hive.openBox<CommandSnippet>('snippets');
     
     debugPrint('Successfully recovered from corrupted data');
   } catch (e) {
@@ -109,7 +133,7 @@ Future<void> _recoverFromCorruptedData() async {
 }
 
 /// Delete a specific box and recreate it
-Future<void> _deleteAndRecreateBox(String boxName) async {
+Future<void> _deleteAndRecreateBox<T>(String boxName) async {
   try {
     await Hive.deleteBoxFromDisk(boxName);
   } catch (e) {
@@ -117,7 +141,7 @@ Future<void> _deleteAndRecreateBox(String boxName) async {
   }
   
   try {
-    await Hive.openBox<SSHConnection>(boxName);
+    await Hive.openBox<T>(boxName);
   } catch (e) {
     debugPrint('Could not recreate box $boxName: $e');
   }
@@ -135,6 +159,8 @@ class HPCCConnectApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TerminalProvider()),
         ChangeNotifierProvider(create: (_) => LocalTerminalProvider()),
         ChangeNotifierProvider(create: (_) => EditorProvider()),
+        ChangeNotifierProvider(create: (_) => SnippetProvider()),
+        ChangeNotifierProvider(create: (_) => TerminalModeProvider()),
       ],
       child: MaterialApp(
         title: 'HPCC Connect',

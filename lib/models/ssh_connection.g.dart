@@ -27,7 +27,7 @@ class SSHConnectionAdapter extends TypeAdapter<SSHConnection> {
       passphrase: fields[7] as String?,
       authType: fields[8] as AuthType,
       remoteWorkingDirectory: fields[9] as String?,
-      createdAt: fields[10] as DateTime,
+      createdAt: fields[10] as DateTime?,
       lastConnected: fields[11] as DateTime?,
     );
   }

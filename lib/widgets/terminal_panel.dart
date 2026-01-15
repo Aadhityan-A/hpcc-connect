@@ -11,6 +11,7 @@ import '../providers/connection_provider.dart';
 import '../providers/file_browser_provider.dart';
 import '../providers/terminal_provider.dart';
 import '../providers/local_terminal_provider.dart';
+import '../providers/terminal_mode_provider.dart';
 import '../services/autocomplete_models.dart';
 import '../services/autocomplete_service.dart';
 import '../services/local_terminal_service.dart';
@@ -93,6 +94,14 @@ class _TerminalPanelState extends State<TerminalPanel> with SingleTickerProvider
     setState(() {});
     _removeOverlay();
     _resetModes();
+    
+    // Update TerminalModeProvider when tab changes
+    final terminalModeProvider = context.read<TerminalModeProvider>();
+    if (_tabController.index == 0) {
+      terminalModeProvider.switchToLocal();
+    } else {
+      terminalModeProvider.switchToSsh();
+    }
   }
 
   void _onInputFocusChanged() {

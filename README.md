@@ -23,11 +23,11 @@
 
 | Platform | Download | Notes |
 |----------|----------|-------|
-| **Windows** | [Installer (.exe)](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.3.0/hpcc-connect-windows-x64-setup.exe) | Recommended |
-| **Linux** | [AppImage](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.3.0/hpcc-connect-1.3.0-x86_64.AppImage) | Works on any distro |
-| **Linux** | [.deb package](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.3.0/hpcc-connect_1.3.0_amd64.deb) | Ubuntu/Debian |
-| **macOS** | [DMG](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.3.0/hpcc-connect-macos.dmg) | macOS 10.14+ |
-| **Android** | [APK (arm64-v8a)](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.3.0/hpcc-connect-app-arm64-v8a-release.apk) | Android 5.0+ |
+| **Windows** | [Installer (.exe)](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.4.0/hpcc-connect-windows-x64-setup.exe) | Recommended |
+| **Linux** | [AppImage](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.4.0/hpcc-connect-1.4.0-x86_64.AppImage) | Works on any distro |
+| **Linux** | [.deb package](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.4.0/hpcc-connect_1.4.0_amd64.deb) | Ubuntu/Debian |
+| **macOS** | [DMG](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.4.0/hpcc-connect-macos.dmg) | macOS 10.14+ |
+| **Android** | [APK (arm64-v8a)](https://github.com/Aadhityan-A/hpcc-connect/releases/download/v1.4.0/hpcc-connect-app-arm64-v8a-release.apk) | Android 5.0+ |
 
 ➡️ **[View All Releases](https://github.com/Aadhityan-A/hpcc-connect/releases)**
 
