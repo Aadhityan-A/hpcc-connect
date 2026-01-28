@@ -33,11 +33,14 @@ class _ConnectionSidebarState extends State<ConnectionSidebar> {
           _buildHeader(context),
           const Divider(height: 1),
           Expanded(
-            flex: 2,
+            flex: 1,
             child: _buildConnectionList(context),
           ),
           const Divider(height: 1),
-          _buildSnippetsSection(context),
+          Expanded(
+            flex: 1,
+            child: _buildSnippetsSection(context),
+          ),
         ],
       ),
     );
@@ -49,7 +52,6 @@ class _ConnectionSidebarState extends State<ConnectionSidebar> {
         final snippets = provider.snippets;
 
         return Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             // Snippets header
             InkWell(
@@ -93,12 +95,10 @@ class _ConnectionSidebarState extends State<ConnectionSidebar> {
             ),
             // Snippets list
             if (_snippetsExpanded)
-              snippets.isEmpty
-                  ? _buildEmptySnippets(context)
-                  : Container(
-                      constraints: const BoxConstraints(maxHeight: 200),
-                      child: ListView.builder(
-                        shrinkWrap: true,
+              Expanded(
+                child: snippets.isEmpty
+                    ? _buildEmptySnippets(context)
+                    : ListView.builder(
                         padding: const EdgeInsets.only(bottom: 8),
                         itemCount: snippets.length,
                         itemBuilder: (context, index) {

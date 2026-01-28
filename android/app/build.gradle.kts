@@ -24,10 +24,13 @@ android {
         applicationId = "com.example.hpcc_connect"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 24  // Android 7.0+ for better freeform window support
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // Enable resizable activity for freeform/multi-window modes
+        resValue("bool", "resizeableActivity", "true")
     }
 
     buildTypes {
